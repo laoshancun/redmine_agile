@@ -3,7 +3,7 @@
 # This file is a part of Redmin Agile (redmine_agile) plugin,
 # Agile board plugin for redmine
 #
-# Copyright (C) 2011-2018 RedmineUP
+# Copyright (C) 2011-2019 RedmineUP
 # http://www.redmineup.com/
 #
 # redmine_agile is free software: you can redistribute it and/or modify
@@ -415,16 +415,22 @@ class AgileBoardsControllerTest < ActionController::TestCase
   end if Redmine::VERSION.to_s > '2.4'
 
   def test_total_estimated_hours_for_status
-    [1, 2, 3].each do |id|
-      issue = Issue.find(id)
+    Setting.stubs(:display_subprojects_issues?).returns(false) if Redmine::VERSION.to_s >= '4.0'
+    Issue.find(1, 2, 3).each do |issue|
       issue.estimated_hours = 10
       issue.save
     end
-    compatible_request :get, :index, agile_query_params.merge(:c => ['estimated_hours'])
+
+    compatible_request :get, :index, agile_query_params.merge(c: ['estimated_hours'],
+                                                              f: [:issue_id],
+                                                              op: { issue_id: '><' },
+                                                              v: { issue_id: [1, 3] })
+
     assert_response :success
-    assert_select 'thead tr th span.hours', { :count => 1, :text => '20.00h' } # status_id == 1
-    assert_select 'thead tr th span.hours', { :count => 1, :text => '10.00h' } # status_id == 2
-  end if Redmine::VERSION.to_s > '2.4'
+
+    assert_select 'thead tr th span.hours', { count: 1, text: '20.00h' } # status_id == 1
+    assert_select 'thead tr th span.hours', { count: 1, text: '10.00h' } # status_id == 2
+  end
 
   def test_get_index_with_checklist
     # global board
